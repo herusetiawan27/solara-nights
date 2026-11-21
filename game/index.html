@@ -3,17 +3,100 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Block Dodger</title>
+<title>Solara Nights — an open-world crime game</title>
 <style>
-  html, body { margin: 0; height: 100%; overflow: hidden; background: #11141b; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0b1020; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: #f2f2f2; }
   #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
-  /* Read aloud, never shown: the status line screen readers announce. */
   #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .screen { position: fixed; inset: 0; display: none; z-index: 10; }
+  .panel { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); text-align: center; background: rgba(10, 14, 30, 0.82); border: 1px solid rgba(255, 210, 62, 0.5); border-radius: 14px; padding: 28px 36px; max-width: 640px; }
+  .panel h1 { margin: 0 0 4px; font-size: 52px; letter-spacing: 2px; color: #ffd23e; text-shadow: 0 3px 0 #b3541e, 0 6px 24px rgba(0,0,0,0.6); }
+  .panel h2 { margin: 0 0 10px; font-size: 30px; color: #ffd23e; }
+  .panel p { margin: 8px 0; line-height: 1.5; color: #e8e8e8; }
+  .sub { color: #9fd8ff !important; letter-spacing: 3px; text-transform: uppercase; font-size: 13px; }
+  button { font: inherit; font-size: 17px; font-weight: 700; color: #1a1200; background: #ffd23e; border: 0; border-radius: 8px; padding: 12px 26px; margin: 6px 4px 0; cursor: pointer; }
+  button:hover { background: #ffe27a; }
+  button.ghost { background: transparent; color: #ffd23e; border: 1px solid #ffd23e; }
+  #howto { display: none; text-align: left; font-size: 14px; background: rgba(255,255,255,0.08); border-radius: 8px; padding: 10px 14px; margin-top: 12px; }
+  #save-info { font-size: 13px; color: #b8c4d8; }
+  /* HUD */
+  #hud { position: fixed; inset: 0; display: none; pointer-events: none; z-index: 5; }
+  #minimap { position: absolute; top: 14px; right: 14px; width: 190px; height: 190px; border: 2px solid rgba(255,255,255,0.7); border-radius: 50%; background: #1d2b1f; box-shadow: 0 2px 14px rgba(0,0,0,0.5); }
+  #wanted { position: absolute; top: 214px; right: 18px; font-size: 26px; letter-spacing: 2px; text-shadow: 0 2px 6px rgba(0,0,0,0.8); }
+  #cash { position: absolute; top: 16px; left: 18px; font-size: 30px; font-weight: 800; color: #7dff9a; text-shadow: 0 2px 6px rgba(0,0,0,0.8); }
+  #health-wrap { position: absolute; top: 56px; left: 18px; width: 220px; }
+  #health-bar { height: 12px; background: rgba(0,0,0,0.55); border: 1px solid rgba(255,255,255,0.6); border-radius: 6px; overflow: hidden; }
+  #health-fill { height: 100%; width: 100%; background: #2ecc71; }
+  #health-text { font-size: 12px; color: #fff; text-shadow: 0 1px 3px #000; }
+  #speed { position: absolute; bottom: 52px; right: 20px; font-size: 26px; font-weight: 800; text-shadow: 0 2px 6px rgba(0,0,0,0.8); }
+  #mission { position: absolute; top: 100px; left: 18px; max-width: 300px; font-size: 14px; line-height: 1.45; background: rgba(10,14,30,0.6); border-left: 4px solid #ffd23e; border-radius: 6px; padding: 8px 12px; }
+  #dialog { position: absolute; bottom: 96px; left: 50%; transform: translateX(-50%); max-width: 620px; display: none; background: rgba(10,14,30,0.78); border: 1px solid rgba(255,255,255,0.35); border-radius: 10px; padding: 10px 16px; font-size: 15px; line-height: 1.45; }
+  #dialog-name { color: #ffd23e; font-weight: 800; }
+  #hint { position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%); font-size: 13px; color: rgba(255,255,255,0.85); text-shadow: 0 1px 3px #000; white-space: nowrap; }
+  #mute-state { position: absolute; bottom: 14px; right: 20px; font-size: 12px; color: #ffd23e; }
+  #crosshair { position: absolute; left: 50%; top: 50%; width: 18px; height: 18px; transform: translate(-50%, -50%); display: none; }
+  #crosshair::before, #crosshair::after { content: ''; position: absolute; background: #fff; }
+  #crosshair::before { left: 8px; top: 0; width: 2px; height: 18px; }
+  #crosshair::after { left: 0; top: 8px; width: 18px; height: 2px; }
 </style>
 </head>
 <body>
-<canvas id="game" aria-label="Block Dodger: move the paddle left and right to dodge falling blocks and catch coins"></canvas>
+<canvas id="game" aria-label="Solara Nights: an open-world crime game. Drive, steal cars, escape the police and finish Mama Rosa's missions."></canvas>
 <p id="status" role="status" aria-live="polite"></p>
+
+<div id="hud">
+  <canvas id="minimap" width="190" height="190"></canvas>
+  <div id="wanted">☆☆☆☆☆</div>
+  <div id="cash">$0</div>
+  <div id="health-wrap"><div id="health-bar"><div id="health-fill"></div></div><span id="health-text">HP 100</span></div>
+  <div id="mission"></div>
+  <div id="dialog"><span id="dialog-name"></span>: <span id="dialog-text"></span></div>
+  <div id="speed"></div>
+  <div id="crosshair"></div>
+  <div id="hint"></div>
+  <div id="mute-state"></div>
+</div>
+
+<div id="screen-title" class="screen"><div class="panel">
+  <p class="sub">An open-world crime game</p>
+  <h1>SOLARA NIGHTS</h1>
+  <p>Rico Vega just got out, and Solara City owes him. Work for Mama Rosa, steal the cars, lose the cops, and take the city for yourself.</p>
+  <p id="save-info"></p>
+  <button id="start-btn">New Story</button>
+  <button id="continue-btn" class="ghost">Continue</button>
+  <button id="howto-btn" class="ghost">Controls</button>
+  <div id="howto">
+    <b>WASD / arrows</b> — move / drive &nbsp;·&nbsp; <b>Shift</b> — run<br>
+    <b>Mouse drag</b> — look around &nbsp;·&nbsp; <b>Click</b> — shoot<br>
+    <b>E</b> — enter / exit car &nbsp;·&nbsp; <b>Space</b> — jump / handbrake<br>
+    <b>P</b> — pause &nbsp;·&nbsp; <b>M</b> — mute<br>
+    Steal cars, finish Mama Rosa's 5 missions, and watch the wanted stars.
+  </div>
+</div></div>
+
+<div id="screen-pause" class="screen"><div class="panel">
+  <h2>Paused</h2>
+  <p>Solara City waits for no one — except right now.</p>
+  <button id="resume-btn">Resume</button>
+  <button id="restart-btn" class="ghost">Restart Story</button>
+  <button id="quit-btn" class="ghost">Quit to Title</button>
+</div></div>
+
+<div id="screen-busted" class="screen"><div class="panel">
+  <h2>BUSTED</h2>
+  <p id="busted-reason">Busted by the Solara PD</p>
+  <p>You lose $100 bail and wake up at Rosa's Garage. The city is still yours to take.</p>
+  <button id="respawn-btn">Get Back Out There</button>
+  <button id="busted-title-btn" class="ghost">Quit to Title</button>
+</div></div>
+
+<div id="screen-complete" class="screen"><div class="panel">
+  <h2>SOLARA IS YOURS</h2>
+  <p>Rico finished all five jobs. Mama Rosa is proud, the Vipers are gone, and the city is yours to roam.</p>
+  <p id="complete-stats"></p>
+  <button id="complete-btn">Free Roam</button>
+</div></div>
+
 <script type="module" src="./src/main.js"></script>
 </body>
 </html>
